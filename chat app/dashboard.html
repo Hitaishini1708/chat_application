@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-options">
+  <h3>Options</h3>
+  <button class="option-btn" onclick="loadPage('personal')">Personal</button>
+  <button class="option-btn" onclick="loadPage('public')">Public</button>
+  <button class="option-btn" onclick="loadPage('world')">World</button>
+</div>
+
+
+  </div>
+
+  <!-- Avatar + Username -->
+  <div class="avatar-container" onclick="toggleSidebarAndUsername()">
+  <div class="avatar"></div>
+  <div class="username hidden" id="usernameDisplay"></div>
+</div>
+
+ <div class="main-content" id="mainContent">
+   <div class="main-header" id="mainHeader">
+  Welcome to ChatApp Dashboard
+</div>
+
+<div class="main-display-area" id="mainContentArea">
+  <p>Select an option from the sidebar to view content.</p>
+  <h2>You have 3 categories in this chat application 
+  </h2>
+  <h3>1.Personal chat :
+    Here you can view your personal chat with your friends 
+  </h3>
+  <h3>
+    2.Public chat :Here you can view public chat with other users in the smae all over the country 
+  </h3>
+  <h3>
+    3.World chat :Here you can view world chat with other users all over the world
+  </h3>
+</div>
+
+  
+</div>
+
+
+
+  <script>
+    // Set username from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const username = urlParams.get('username') || "Guest";
+    document.getElementById('usernameDisplay').textContent = username;
+const chatMessagesStore = {
+  personal: [],
+  public: [],
+  world: []
+};
+const personalFriends = [];
+const personalChats = {};
+let currentRoom = null;
+let currentChatFriend = null;
+
+
+
+
+    // Sidebar toggle
+   function toggleSidebarAndUsername() {
+  const sidebar = document.getElementById('sidebar');
+  const content = document.getElementById('mainContent');
+  const username = document.getElementById('usernameDisplay');
+
+  sidebar.classList.toggle('open');
+  content.classList.toggle('shifted');
+  username.classList.toggle('visible');
+  username.classList.toggle('hidden');
+}
+function loadPage(type) {
+  currentRoom = type;
+  const header = document.getElementById("mainHeader");
+  const contentArea = document.getElementById("mainContentArea");
+
+  if (type === "personal") {
+    header.textContent = "Personal";
+   contentArea.innerHTML = `
+  <p>This is your private personal space. Only you can view this content.</p>
+  <div class="friend-list" id="friendList" style="overflow-x:auto; white-space: nowrap;"></div>
+  <div id="chatBox" class="chat-box hidden">
+    <div class="chat-header" id="chatHeader"></div>
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-input">
+  <button class="emoji-btn" onclick="toggleEmojiPicker()">😊</button>
+  <input type="text" id="messageInput" placeholder="Type your message..." autocomplete="off" />
+  <button onclick="${type === 'personal' ? 'sendFriendMessage()' : 'sendMessage()'}">Send</button>
+</div>
+<div class="emoji-picker hidden" id="emojiPicker"></div>
+
+  </div>
+`;
+setupEnterKeyForInput("messageInput", sendFriendMessage);
+
+
+    renderFriendList();
+    
+  } else {
+    // For 'public' and 'world' rooms
+    let message = "";
+    if (type === "public") {
+      header.textContent = "Public";
+      message = "Welcome to the public room. Chat with people around you.";
+    } else if (type === "world") {
+      header.textContent = "World";
+      message = "You are now connected globally. Say hello to the world!";
+    }
+
+    contentArea.innerHTML = `
+      <p>${message}</p>
+      <div class="chat-container">
+        <div class="chat-messages" id="chatMessages"></div>
+        <div class="chat-input">
+  <button class="emoji-btn" onclick="toggleEmojiPicker()">😊</button>
+  <input type="text" id="messageInput" placeholder="Type your message..." autocomplete="off" />
+  <button onclick="${type === 'personal' ? 'sendFriendMessage()' : 'sendMessage()'}">Send</button>
+</div>
+<div class="emoji-picker hidden" id="emojiPicker"></div>
+
+      </div>
+    `;
+ setupEnterKeyForInput("messageInput", sendMessage);
+
+    renderMessages();
+    
+
+  }
+}
+
+function renderMessages() {
+  const messagesDiv = document.getElementById("chatMessages");
+  messagesDiv.innerHTML = "";
+
+  chatMessagesStore[currentRoom].forEach(msg => {
+    const messageDiv = document.createElement("div");
+    messageDiv.className = "chat-message";
+
+    messageDiv.innerHTML = `
+      <span class="message-text"><strong>${msg.sender}:</strong> ${msg.text}</span>
+      <span class="message-time">${msg.time}</span>
+    `;
+
+    messagesDiv.appendChild(messageDiv);
+  });
+
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+let isAddingFriend = false;  // global flag to track if input box is visible
+
+function renderFriendList() {
+  const list = document.getElementById("friendList");
+  list.innerHTML = "";
+
+  // Add Friend box or input
+  if (!isAddingFriend) {
+    const addBox = document.createElement("div");
+    addBox.className = "friend-box add-friend";
+    addBox.textContent = "+ Add Friend";
+    addBox.onclick = () => {
+      isAddingFriend = true;
+      renderFriendList();
+    };
+    list.appendChild(addBox);
+  } else {
+    // Show input box to enter friend name and buttons
+    const inputDiv = document.createElement("div");
+    inputDiv.className = "friend-box add-friend";
+
+    inputDiv.style.display = "flex";
+    inputDiv.style.gap = "5px";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = "Enter username";
+    input.style.flexGrow = "1";
+
+    const addBtn = document.createElement("button");
+    addBtn.textContent = "Add";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.textContent = "Cancel";
+
+    addBtn.onclick = () => {
+      const name = input.value.trim();
+      if (name && !personalFriends.includes(name)) {
+        personalFriends.push(name);
+        personalChats[name] = [];
+        isAddingFriend = false;
+        renderFriendList();
+      } else {
+        alert("Please enter a valid, unique username.");
+      }
+    };
+
+    cancelBtn.onclick = () => {
+      isAddingFriend = false;
+      renderFriendList();
+    };
+
+    // Enter key support for the input box
+    input.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        addBtn.onclick();
+      }
+    });
+
+    inputDiv.appendChild(input);
+    inputDiv.appendChild(addBtn);
+    inputDiv.appendChild(cancelBtn);
+
+    list.appendChild(inputDiv);
+
+    // Automatically focus the input
+    setTimeout(() => input.focus(), 0);
+  }
+
+  // Friend boxes
+  personalFriends.forEach(friend => {
+    const friendBox = document.createElement("div");
+    friendBox.className = "friend-box";
+    friendBox.textContent = friend;
+
+    if (friend === currentChatFriend) {
+      friendBox.classList.add("selected");
+    }
+
+    friendBox.onclick = () => openChatWith(friend);
+    list.appendChild(friendBox);
+  });
+}
+
+
+function openChatWith(friend) {
+  currentChatFriend = friend;
+  document.getElementById("chatHeader").textContent = "Chat with " + friend;
+  document.getElementById("chatBox").classList.remove("hidden");
+  renderFriendMessages();
+  renderFriendList(); // Re-render friend list to update selection highlight
+}
+
+function setupEnterKeyForInput(inputId, sendFunc) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+
+  input.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      sendFunc();
+    }
+  });
+}
+
+
+
+function renderFriendMessages() {
+  const box = document.getElementById("chatMessages");
+  box.innerHTML = "";
+  const messages = personalChats[currentChatFriend] || [];
+
+  messages.forEach(msg => {
+    const div = document.createElement("div");
+    div.className = "chat-message";
+
+    // ✅ Handle if message is string (older ones) or object
+    if (typeof msg === "string") {
+      div.textContent = msg; // fallback
+    } else {
+       div.innerHTML = `
+    <span class="message-text"><strong>${msg.sender}:</strong> ${msg.text}</span>
+    <span class="message-time">${msg.time}</span>
+  `;
+    }
+
+    
+    box.appendChild(div);
+  });
+
+  box.scrollTop = box.scrollHeight;
+}
+
+
+function sendFriendMessage() {
+  const input = document.getElementById("messageInput");
+  const text = input.value.trim();
+  if (!text) return;
+
+  const now = new Date();
+  const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  personalChats[currentChatFriend].push({
+    sender: username,
+    text,
+    time
+  });
+
+  input.value = "";
+  renderFriendMessages();
+}
+
+
+
+
+function sendMessage() {
+  const input = document.getElementById("messageInput");
+  const text = input.value.trim();
+  if (text === "") return;
+
+  const now = new Date();
+  const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  // Save to store
+  chatMessagesStore[currentRoom].push({
+    sender: username,
+    text,
+    time
+  });
+
+  input.value = "";
+  renderMessages();
+}
+
+
+const emojis = ["😀", "😂", "😍", "😎", "😢", "👍", "🎉", "❤️", "🔥", "💯"];
+
+function toggleEmojiPicker() {
+  const picker = document.getElementById("emojiPicker");
+  picker.classList.toggle("hidden");
+
+  if (!picker.classList.contains("loaded")) {
+    emojis.forEach(emoji => {
+      const span = document.createElement("span");
+      span.textContent = emoji;
+      span.style.cursor = "pointer";
+      span.style.margin = "5px";
+      span.style.fontSize = "20px";
+      span.onclick = () => insertEmoji(emoji);
+      picker.appendChild(span);
+    });
+    picker.classList.add("loaded");
+  }
+}
+
+function insertEmoji(emoji) {
+  const input = document.getElementById("messageInput");
+  input.value += emoji;
+  input.focus();
+}
+
+
+
+  </script>
+</body>
+</html>
