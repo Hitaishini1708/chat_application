@@ -48,16 +48,6 @@ Seamless transitions between chat modes
 
 ------
 
-📁 File Structure
-bash
-Copy code
-ChatApp/
-├── index.html          # Login page
-├── dashboard.html      # Main dashboard and chat system
-├── styl.css            # Styling for login page
-├── dashboard.css       # Styling for dashboard
-
------
 💻 How to Run
 
 Clone the repository or download the files.
